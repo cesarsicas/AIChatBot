@@ -6,6 +6,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -18,10 +20,23 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URL
 
-class ChatViewModel(application: Application) : AndroidViewModel(application) {
+class ChatViewModel(
+    application: Application,
+    val character: Character
+) : AndroidViewModel(application) {
+
+    class Factory(
+        private val application: Application,
+        private val character: Character
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            ChatViewModel(application, character) as T
+    }
 
     companion object {
         private const val TAG = "ChatViewModel"
@@ -50,6 +65,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private var engine: Engine? = null
     private var conversation: Conversation? = null
+    private var ragRepository: RagRepository? = null
 
     private val modelFile get() = File(getApplication<Application>().filesDir, MODEL_FILENAME)
 
@@ -140,9 +156,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             engine!!.initialize()
             conversation = engine!!.createConversation(
                 ConversationConfig(
-                    systemInstruction = Contents.of("You are a helpful assistant.")
+                    systemInstruction = Contents.of(character.systemPrompt)
                 )
             )
+            ragRepository = RagRepository(getApplication())
             _engineState.value = EngineState.Ready
         } catch (e: Exception) {
             Log.e(TAG, "Engine init failed", e)
@@ -156,8 +173,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _messages.value += ChatMessage(ChatMessage.Role.USER, text)
             _isGenerating.value = true
             _messages.value += ChatMessage(ChatMessage.Role.ASSISTANT, "")
+
+            val augmented = withContext(Dispatchers.IO) {
+                val rag = ragRepository
+                if (rag != null) {
+                    val ctx = rag.buildContext(text, character)
+                    "Context:\n$ctx\n\nQuestion: $text"
+                } else {
+                    text
+                }
+            }
+
             try {
-                conv.sendMessageAsync(text).collect { response ->
+                conv.sendMessageAsync(augmented).collect { response ->
                     val token = response.contents.contents
                         .filterIsInstance<Content.Text>()
                         .joinToString("") { it.text }
@@ -177,6 +205,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        ragRepository?.close()
         conversation?.close()
         engine?.close()
         super.onCleared()

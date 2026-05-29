@@ -44,7 +44,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun ChatScreen(modifier: Modifier = Modifier, vm: ChatViewModel = viewModel()) {
+fun ChatScreen(character: Character, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val vm: ChatViewModel = viewModel(
+        factory = ChatViewModel.Factory(context.applicationContext as android.app.Application, character)
+    )
     val engineState by vm.engineState.collectAsStateWithLifecycle()
     val messages by vm.messages.collectAsStateWithLifecycle()
     val isGenerating by vm.isGenerating.collectAsStateWithLifecycle()
