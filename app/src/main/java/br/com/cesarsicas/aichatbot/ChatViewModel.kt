@@ -14,6 +14,7 @@ import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -149,18 +150,24 @@ class ChatViewModel(
         }
     }
 
-    private fun initializeEngine() {
-        try {
-            _engineState.value = EngineState.Initializing
-            engine = Engine(EngineConfig(modelPath = modelFile.absolutePath, maxNumTokens = 2048))
-            engine!!.initialize()
-            conversation = engine!!.createConversation(ConversationConfig())
-            ragRepository = RagRepository(getApplication())
-            _engineState.value = EngineState.Ready
-        } catch (e: Exception) {
-            Log.e(TAG, "Engine init failed", e)
-            _engineState.value = EngineState.Error("Initialization failed: ${e.message}")
-        }
+    private fun initializeEngine() = try {
+        _engineState.value = EngineState.Initializing
+
+        val customSampler = SamplerConfig(
+            topK = 40,
+            topP = 0.9,
+            temperature = 0.4,
+            seed = 0
+        )
+
+        engine = Engine(EngineConfig(modelPath = modelFile.absolutePath, maxNumTokens = 2048))
+        engine!!.initialize()
+        conversation = engine!!.createConversation(ConversationConfig(samplerConfig = customSampler))
+        ragRepository = RagRepository(getApplication())
+        _engineState.value = EngineState.Ready
+    } catch (e: Exception) {
+        Log.e(TAG, "Engine init failed", e)
+        _engineState.value = EngineState.Error("Initialization failed: ${e.message}")
     }
 
     fun sendMessage(text: String) {
