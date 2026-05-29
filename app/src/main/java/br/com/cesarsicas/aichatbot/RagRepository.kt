@@ -10,7 +10,7 @@ class RagRepository(context: Context) {
     fun buildContext(query: String, character: Character): String {
         val embedding = embeddingModel.embed(query)
         val chunks = vectorDatabase.search(embedding, character.characterId)
-        return chunks.joinToString("\n") { "[${character.characterId}]: $it" }
+        return chunks.joinToString("\n\n") { "[${character.characterId}]: $it" }
     }
 
     fun close() {

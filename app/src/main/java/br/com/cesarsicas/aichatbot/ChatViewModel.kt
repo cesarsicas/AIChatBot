@@ -10,7 +10,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.litertlm.Content
-import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
@@ -40,6 +39,7 @@ class ChatViewModel(
 
     companion object {
         private const val TAG = "ChatViewModel"
+        private const val MAX_OUTPUT_TOKENS = 400
         // Update this URL to the exact .litertlm file on https://huggingface.co/litert-community
         private const val MODEL_URL =
             "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.litertlm"
@@ -152,13 +152,9 @@ class ChatViewModel(
     private fun initializeEngine() {
         try {
             _engineState.value = EngineState.Initializing
-            engine = Engine(EngineConfig(modelPath = modelFile.absolutePath))
+            engine = Engine(EngineConfig(modelPath = modelFile.absolutePath, maxNumTokens = 2048))
             engine!!.initialize()
-            conversation = engine!!.createConversation(
-                ConversationConfig(
-                    systemInstruction = Contents.of(character.systemPrompt)
-                )
-            )
+            conversation = engine!!.createConversation(ConversationConfig())
             ragRepository = RagRepository(getApplication())
             _engineState.value = EngineState.Ready
         } catch (e: Exception) {
@@ -178,17 +174,20 @@ class ChatViewModel(
                 val rag = ragRepository
                 if (rag != null) {
                     val ctx = rag.buildContext(text, character)
-                    "Context:\n$ctx\n\nQuestion: $text"
+                    "Use the following context to answer the question.\n\nContext:\n$ctx\n\nQuestion: $text"
                 } else {
                     text
                 }
             }
 
             try {
+                var tokenCount = 0
                 conv.sendMessageAsync(augmented).collect { response ->
+                    if (tokenCount >= MAX_OUTPUT_TOKENS) return@collect
                     val token = response.contents.contents
                         .filterIsInstance<Content.Text>()
                         .joinToString("") { it.text }
+                    tokenCount++
                     val updated = _messages.value.toMutableList()
                     val last = updated.last()
                     updated[updated.lastIndex] = last.copy(text = last.text + token)
