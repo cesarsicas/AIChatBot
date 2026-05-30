@@ -2,6 +2,13 @@ package br.com.cesarsicas.aichatbot.presentation.chat
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,13 +19,16 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -80,9 +90,10 @@ fun ChatScreen(
             StatusBar(uiState.modelStatus)
 
             val listState = rememberLazyListState()
-            LaunchedEffect(uiState.messages.size) {
-                if (uiState.messages.isNotEmpty()) {
-                    listState.animateScrollToItem(uiState.messages.lastIndex)
+            val itemCount = uiState.messages.size + if (uiState.isGenerating) 1 else 0
+            LaunchedEffect(itemCount) {
+                if (itemCount > 0) {
+                    listState.animateScrollToItem(itemCount - 1)
                 }
             }
 
@@ -95,6 +106,9 @@ fun ChatScreen(
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(uiState.messages) { msg -> MessageBubble(msg) }
+                if (uiState.isGenerating) {
+                    item(key = "typing_indicator") { TypingIndicator() }
+                }
             }
 
             InputBar(
@@ -159,6 +173,55 @@ private fun MessageBubble(message: ChatMessage) {
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun TypingIndicator(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "typing")
+    val dotOffsets = List(3) { index ->
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 0f,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes {
+                    durationMillis = 900
+                    0f at 0
+                    -6f at 200
+                    0f at 400
+                },
+                repeatMode = RepeatMode.Restart,
+                initialStartOffset = StartOffset(index * 150)
+            ),
+            label = "dot_$index"
+        )
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.align(Alignment.CenterStart)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                dotOffsets.forEach { offsetState ->
+                    val offsetY by offsetState
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .offset(y = offsetY.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                shape = CircleShape
+                            )
+                    )
+                }
+            }
         }
     }
 }
