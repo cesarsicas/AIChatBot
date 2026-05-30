@@ -3,13 +3,17 @@ package br.com.cesarsicas.aichatbot.presentation.characterselection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,27 +32,34 @@ fun CharacterSelectionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("Choose Your Character", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Each character answers from their own knowledge base.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(40.dp))
-        uiState.characters.forEach { character ->
-            CharacterCard(
-                character = character,
-                onClick = { viewModel.onIntent(CharacterSelectionIntent.SelectCharacter(character)) }
+    Scaffold(
+        modifier = modifier,
+        contentWindowInsets = WindowInsets.safeDrawing
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("Choose Your Character", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Each character answers from their own knowledge base.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(40.dp))
+            uiState.characters.forEach { character ->
+                CharacterCard(
+                    character = character,
+                    onClick = { viewModel.onIntent(CharacterSelectionIntent.SelectCharacter(character)) }
+                )
+                Spacer(Modifier.height(16.dp))
+            }
         }
     }
 }

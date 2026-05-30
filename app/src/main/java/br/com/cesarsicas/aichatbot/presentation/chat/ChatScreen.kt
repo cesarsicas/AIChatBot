@@ -8,9 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,49 +49,61 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    if (uiState.modelStatus is ModelStatus.Absent) {
-        val pickFileLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.OpenDocument()
-        ) { uri ->
-            uri?.let {
-                viewModel.onIntent(ChatIntent.ImportModel(context.contentResolver, it))
+    Scaffold(
+        modifier = modifier,
+        contentWindowInsets = WindowInsets.safeDrawing
+    ) { innerPadding ->
+        if (uiState.modelStatus is ModelStatus.Absent) {
+            val pickFileLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                uri?.let {
+                    viewModel.onIntent(ChatIntent.ImportModel(context.contentResolver, it))
+                }
             }
-        }
-        ModelSetupScreen(
-            modifier = modifier,
-            onDownload = { viewModel.onIntent(ChatIntent.DownloadModel) },
-            onPickFile = { pickFileLauncher.launch(arrayOf("*/*")) }
-        )
-        return
-    }
-
-    Column(modifier = modifier.fillMaxSize()) {
-        StatusBar(uiState.modelStatus)
-
-        val listState = rememberLazyListState()
-        LaunchedEffect(uiState.messages.size) {
-            if (uiState.messages.isNotEmpty()) {
-                listState.animateScrollToItem(uiState.messages.lastIndex)
-            }
+            ModelSetupScreen(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding),
+                onDownload = { viewModel.onIntent(ChatIntent.DownloadModel) },
+                onPickFile = { pickFileLauncher.launch(arrayOf("*/*")) }
+            )
+            return@Scaffold
         }
 
-        LazyColumn(
-            state = listState,
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
+                .fillMaxSize()
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
         ) {
-            items(uiState.messages) { msg -> MessageBubble(msg) }
-        }
+            StatusBar(uiState.modelStatus)
 
-        InputBar(
-            text = uiState.inputText,
-            enabled = uiState.modelStatus is ModelStatus.Ready && !uiState.isGenerating,
-            onTextChange = { viewModel.onIntent(ChatIntent.UpdateInput(it)) },
-            onSend = { viewModel.onIntent(ChatIntent.SendMessage) }
-        )
+            val listState = rememberLazyListState()
+            LaunchedEffect(uiState.messages.size) {
+                if (uiState.messages.isNotEmpty()) {
+                    listState.animateScrollToItem(uiState.messages.lastIndex)
+                }
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(uiState.messages) { msg -> MessageBubble(msg) }
+            }
+
+            InputBar(
+                text = uiState.inputText,
+                enabled = uiState.modelStatus is ModelStatus.Ready && !uiState.isGenerating,
+                onTextChange = { viewModel.onIntent(ChatIntent.UpdateInput(it)) },
+                onSend = { viewModel.onIntent(ChatIntent.SendMessage) }
+            )
+        }
     }
 }
 
