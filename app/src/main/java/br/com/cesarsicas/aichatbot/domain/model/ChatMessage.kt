@@ -1,4 +1,4 @@
-package br.com.cesarsicas.aichatbot
+package br.com.cesarsicas.aichatbot.domain.model
 
 data class ChatMessage(
     val role: Role,

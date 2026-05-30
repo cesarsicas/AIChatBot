@@ -1,4 +1,4 @@
-package br.com.cesarsicas.aichatbot
+package br.com.cesarsicas.aichatbot.data.local
 
 import android.content.Context
 import android.util.Log

@@ -1,0 +1,13 @@
+package br.com.cesarsicas.aichatbot.presentation.chat
+
+import br.com.cesarsicas.aichatbot.domain.model.Character
+import br.com.cesarsicas.aichatbot.domain.model.ChatMessage
+import br.com.cesarsicas.aichatbot.domain.model.ModelStatus
+
+data class ChatUiState(
+    val modelStatus: ModelStatus = ModelStatus.Absent,
+    val messages: List<ChatMessage> = emptyList(),
+    val isGenerating: Boolean = false,
+    val inputText: String = "",
+    val character: Character? = null
+)

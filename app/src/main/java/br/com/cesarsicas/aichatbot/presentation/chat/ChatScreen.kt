@@ -1,4 +1,4 @@
-package br.com.cesarsicas.aichatbot
+package br.com.cesarsicas.aichatbot.presentation.chat
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -20,119 +19,93 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import br.com.cesarsicas.aichatbot.domain.model.ChatMessage
+import br.com.cesarsicas.aichatbot.domain.model.ModelStatus
 
 @Composable
-fun ChatScreen(character: Character, modifier: Modifier = Modifier) {
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val vm: ChatViewModel = viewModel(
-        factory = ChatViewModel.Factory(context.applicationContext as android.app.Application, character)
-    )
-    val engineState by vm.engineState.collectAsStateWithLifecycle()
-    val messages by vm.messages.collectAsStateWithLifecycle()
-    val isGenerating by vm.isGenerating.collectAsStateWithLifecycle()
 
-    if (engineState is ChatViewModel.EngineState.Idle) {
-        val context = LocalContext.current
+    if (uiState.modelStatus is ModelStatus.Absent) {
         val pickFileLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocument()
         ) { uri ->
-            uri?.let { vm.importModelFromUri(context.contentResolver, it) }
+            uri?.let {
+                viewModel.onIntent(ChatIntent.ImportModel(context.contentResolver, it))
+            }
         }
         ModelSetupScreen(
             modifier = modifier,
-            onDownload = vm::downloadModel,
+            onDownload = { viewModel.onIntent(ChatIntent.DownloadModel) },
             onPickFile = { pickFileLauncher.launch(arrayOf("*/*")) }
         )
         return
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        StatusBar(engineState)
+        StatusBar(uiState.modelStatus)
 
         val listState = rememberLazyListState()
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+        LaunchedEffect(uiState.messages.size) {
+            if (uiState.messages.isNotEmpty()) {
+                listState.animateScrollToItem(uiState.messages.lastIndex)
+            }
         }
 
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            items(messages) { msg -> MessageBubble(msg) }
+            items(uiState.messages) { msg -> MessageBubble(msg) }
         }
 
         InputBar(
-            enabled = engineState is ChatViewModel.EngineState.Ready && !isGenerating,
-            onSend = vm::sendMessage
+            text = uiState.inputText,
+            enabled = uiState.modelStatus is ModelStatus.Ready && !uiState.isGenerating,
+            onTextChange = { viewModel.onIntent(ChatIntent.UpdateInput(it)) },
+            onSend = { viewModel.onIntent(ChatIntent.SendMessage) }
         )
     }
 }
 
 @Composable
-private fun ModelSetupScreen(
-    modifier: Modifier = Modifier,
-    onDownload: () -> Unit,
-    onPickFile: () -> Unit
-) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("AI Chatbot", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "A local model (~1 GB) is required to start chatting.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(32.dp))
-        Button(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
-            Text("Download model (Wi-Fi recommended)")
-        }
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = onPickFile, modifier = Modifier.fillMaxWidth()) {
-            Text("Pick model from storage")
-        }
-    }
-}
-
-@Composable
-private fun StatusBar(state: ChatViewModel.EngineState) {
-    when (state) {
-        is ChatViewModel.EngineState.Downloading -> {
-            LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
+private fun StatusBar(status: ModelStatus) {
+    when (status) {
+        is ModelStatus.Transferring -> {
+            LinearProgressIndicator(
+                progress = { status.progress },
+                modifier = Modifier.fillMaxWidth()
+            )
             Text(
-                "${state.label} ${(state.progress * 100).toInt()}%",
+                "${status.label} ${(status.progress * 100).toInt()}%",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
-        is ChatViewModel.EngineState.Initializing -> {
+        is ModelStatus.Initializing -> {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Text(
                 "Loading model…",
@@ -140,9 +113,9 @@ private fun StatusBar(state: ChatViewModel.EngineState) {
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
-        is ChatViewModel.EngineState.Error -> {
+        is ModelStatus.Failure -> {
             Text(
-                state.message,
+                status.message,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(8.dp)
@@ -175,15 +148,19 @@ private fun MessageBubble(message: ChatMessage) {
 }
 
 @Composable
-private fun InputBar(enabled: Boolean, onSend: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
+private fun InputBar(
+    text: String,
+    enabled: Boolean,
+    onTextChange: (String) -> Unit,
+    onSend: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextField(
             value = text,
-            onValueChange = { text = it },
+            onValueChange = onTextChange,
             modifier = Modifier.weight(1f),
             placeholder = { Text("Type a message…") },
             enabled = enabled,
@@ -191,7 +168,7 @@ private fun InputBar(enabled: Boolean, onSend: (String) -> Unit) {
         )
         Spacer(Modifier.width(8.dp))
         IconButton(
-            onClick = { if (text.isNotBlank()) { onSend(text.trim()); text = "" } },
+            onClick = onSend,
             enabled = enabled && text.isNotBlank()
         ) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")

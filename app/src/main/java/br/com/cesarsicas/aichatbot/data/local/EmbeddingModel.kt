@@ -1,4 +1,4 @@
-package br.com.cesarsicas.aichatbot
+package br.com.cesarsicas.aichatbot.data.local
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment

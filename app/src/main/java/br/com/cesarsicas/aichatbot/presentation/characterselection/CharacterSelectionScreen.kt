@@ -1,4 +1,4 @@
-package br.com.cesarsicas.aichatbot
+package br.com.cesarsicas.aichatbot.presentation.characterselection
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,16 +13,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import br.com.cesarsicas.aichatbot.domain.model.Character
 
 @Composable
 fun CharacterSelectionScreen(
-    modifier: Modifier = Modifier,
-    onCharacterSelected: (Character) -> Unit
+    viewModel: CharacterSelectionViewModel,
+    modifier: Modifier = Modifier
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -38,8 +43,11 @@ fun CharacterSelectionScreen(
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(40.dp))
-        Character.entries.forEach { character ->
-            CharacterCard(character = character, onClick = { onCharacterSelected(character) })
+        uiState.characters.forEach { character ->
+            CharacterCard(
+                character = character,
+                onClick = { viewModel.onIntent(CharacterSelectionIntent.SelectCharacter(character)) }
+            )
             Spacer(Modifier.height(16.dp))
         }
     }

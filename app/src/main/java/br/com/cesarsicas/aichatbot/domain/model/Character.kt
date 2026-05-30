@@ -1,4 +1,4 @@
-package br.com.cesarsicas.aichatbot
+package br.com.cesarsicas.aichatbot.domain.model
 
 enum class Character(
     val characterId: String,

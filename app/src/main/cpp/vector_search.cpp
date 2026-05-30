@@ -12,7 +12,7 @@
 
 extern "C"
 JNIEXPORT jobjectArray JNICALL
-Java_br_com_cesarsicas_aichatbot_VectorDatabase_nativeSearch(
+Java_br_com_cesarsicas_aichatbot_data_local_VectorDatabase_nativeSearch(
     JNIEnv *env,
     jclass,
     jstring dbPath,
