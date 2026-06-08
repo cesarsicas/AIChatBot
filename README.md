@@ -10,7 +10,11 @@ Available characters:
 
 ## Screenshots
 
-> _Add screenshots here_
+
+
+https://github.com/user-attachments/assets/cb2e454a-8036-4b23-a21c-4cd5fd01805e
+
+
 
 ---
 
