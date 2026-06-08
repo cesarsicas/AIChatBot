@@ -10,35 +10,51 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import br.com.cesarsicas.aichatbot.domain.model.Character
+import br.com.cesarsicas.aichatbot.presentation.characterdetail.CharacterDetailScreen
 import br.com.cesarsicas.aichatbot.presentation.characterselection.CharacterSelectionScreen
 import br.com.cesarsicas.aichatbot.presentation.characterselection.CharacterSelectionViewModel
 import br.com.cesarsicas.aichatbot.presentation.chat.ChatIntent
 import br.com.cesarsicas.aichatbot.presentation.chat.ChatScreen
 import br.com.cesarsicas.aichatbot.presentation.chat.ChatViewModel
+import br.com.cesarsicas.aichatbot.presentation.settings.SettingsScreen
 
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     NavHost(
         navController = navController,
         startDestination = Screen.CharacterSelection.route,
-        modifier = modifier
+        modifier = modifier,
     ) {
         composable(Screen.CharacterSelection.route) {
             val viewModel: CharacterSelectionViewModel = hiltViewModel()
             LaunchedEffect(Unit) {
                 viewModel.navigationEvent.collect { character ->
-                    navController.navigate(Screen.Chat.createRoute(character.characterId))
+                    navController.navigate(Screen.CharacterDetail.createRoute(character.characterId))
                 }
             }
             CharacterSelectionScreen(viewModel = viewModel)
         }
 
         composable(
+            route = Screen.CharacterDetail.route,
+            arguments = listOf(navArgument("characterId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val characterId = backStackEntry.arguments?.getString("characterId") ?: return@composable
+            CharacterDetailScreen(
+                characterId = characterId,
+                onNavigateBack = { navController.popBackStack() },
+                onBeginConversation = { id ->
+                    navController.navigate(Screen.Chat.createRoute(id))
+                },
+            )
+        }
+
+        composable(
             route = Screen.Chat.route,
-            arguments = listOf(navArgument("characterId") { type = NavType.StringType })
+            arguments = listOf(navArgument("characterId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val characterId = backStackEntry.arguments?.getString("characterId") ?: return@composable
             val character = Character.entries.firstOrNull { it.characterId == characterId }
@@ -47,7 +63,15 @@ fun AppNavGraph(
             LaunchedEffect(character) {
                 viewModel.onIntent(ChatIntent.Initialize(character))
             }
-            ChatScreen(viewModel = viewModel)
+            ChatScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+            )
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 }

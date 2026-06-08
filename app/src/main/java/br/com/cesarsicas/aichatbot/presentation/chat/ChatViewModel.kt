@@ -90,14 +90,23 @@ class ChatViewModel @Inject constructor(
                     ChatMessage(ChatMessage.Role.USER, text) +
                     ChatMessage(ChatMessage.Role.ASSISTANT, ""),
                 inputText = "",
-                isGenerating = true
+                isGenerating = true,
+                lastMetrics = null,
             ) }
 
+            val totalStart = System.currentTimeMillis()
+
+            val ragStart = System.currentTimeMillis()
             val augmented = sendMessageUseCase(text, character)
+            val ragMs = System.currentTimeMillis() - ragStart
 
             var tokenCount = 0
+            var firstTokenMs = -1L
+            val inferenceStart = System.currentTimeMillis()
+
             chatRepository.streamResponse(augmented).collect { token ->
                 if (tokenCount >= MAX_OUTPUT_TOKENS) return@collect
+                if (tokenCount == 0) firstTokenMs = System.currentTimeMillis() - inferenceStart
                 tokenCount++
                 _uiState.update { s ->
                     val msgs = s.messages.toMutableList()
@@ -106,7 +115,18 @@ class ChatViewModel @Inject constructor(
                     s.copy(messages = msgs)
                 }
             }
-            _uiState.update { it.copy(isGenerating = false) }
+
+            val generationMs = System.currentTimeMillis() - inferenceStart
+            val totalMs = System.currentTimeMillis() - totalStart
+            _uiState.update { it.copy(
+                isGenerating = false,
+                lastMetrics = InferenceMetrics(
+                    ragMs = ragMs,
+                    timeToFirstTokenMs = firstTokenMs.coerceAtLeast(0),
+                    generationMs = generationMs,
+                    totalMs = totalMs,
+                ),
+            ) }
         }
     }
 
