@@ -221,6 +221,11 @@ fun ChatScreen(
             }
 
             HairlineRule(color = LineSoft)
+            val metrics = uiState.lastMetrics
+            if (metrics != null && !uiState.isGenerating) {
+                MetricsBar(metrics = metrics, accent = ct?.accent ?: InkSoft)
+                HairlineRule(color = LineSoft)
+            }
             InputBar(
                 text = uiState.inputText,
                 enabled = uiState.modelStatus is ModelStatus.Ready && !uiState.isGenerating,
@@ -686,6 +691,48 @@ private fun CharBubble(text: String, ct: CharacterTheme?) {
         }
 
         Spacer(Modifier.width(30.dp))
+    }
+}
+
+@Composable
+private fun MetricsBar(metrics: InferenceMetrics, accent: Color) {
+    fun Long.fmt() = if (this < 1000) "${this}ms" else "${"%.1f".format(this / 1000.0)}s"
+
+    val items = listOf(
+        "RAG" to metrics.ragMs.fmt(),
+        "1st token" to metrics.timeToFirstTokenMs.fmt(),
+        "Gen" to metrics.generationMs.fmt(),
+        "Total" to metrics.totalMs.fmt(),
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Paper)
+            .padding(horizontal = 14.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        items.forEachIndexed { index, (label, value) ->
+            if (index > 0) {
+                Text(
+                    text = " · ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = InkFaint.copy(alpha = 0.4f),
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = InkFaint,
+                letterSpacing = 0.06.em,
+            )
+            Text(
+                text = " $value",
+                style = MaterialTheme.typography.labelSmall,
+                color = accent,
+                letterSpacing = 0.04.em,
+            )
+        }
     }
 }
 
